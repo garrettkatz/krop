@@ -30,8 +30,7 @@ def cleanup(thetas, u):
         x_top, x_bot = X[::2], X[1::2]
         X[::2], X[1::2] = c*x_top + s*x_bot, s*x_top - c*x_bot
 
-    # reconstruct H_i*
-    idx = np.argmax(X.flat)
-    return reconstruct(thetas, idx)
+    # return i*
+    return np.argmax(X.flat)
 
 

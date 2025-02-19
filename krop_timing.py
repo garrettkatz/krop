@@ -7,7 +7,7 @@ from matplotlib import rcParams
 import krop
 
 # config for big check
-do_check = False
+do_check = True
 num_reps = 30
 K_max = 15
 
@@ -36,7 +36,8 @@ if do_check:
             runtimes["direct"][K].append(duration)
 
             start = perf_counter()
-            v_krop = krop.cleanup(thetas, u)
+            i = krop.cleanup(thetas, u)
+            v_krop = krop.reconstruct(thetas, i)
             duration = perf_counter() - start
             runtimes["krop"][K].append(duration)
             
