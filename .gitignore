@@ -1,0 +1,15 @@
+*~
+__pycache__
+*.npz
+*.npy
+*.pkl
+*.pdf
+*.eps
+*.png
+*.lprof
+*.pt
+*.zip
+*.txt
+
+
+
