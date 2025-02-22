@@ -23,14 +23,14 @@ def reconstruct(thetas, idx):
 def cleanup(thetas, u):
 
     # decompose into sub-problems
-    X = u.copy()
-    for d, theta in enumerate(reversed(thetas)):
+    U = u.copy()
+    for k, theta in reversed(tuple(enumerate(thetas))):
         c, s = np.cos(theta), np.sin(theta)
-        X = X.reshape((2**(d+1), -1))
-        x_top, x_bot = X[::2], X[1::2]
-        X[::2], X[1::2] = c*x_top + s*x_bot, s*x_top - c*x_bot
+        U = U.reshape((-1, 2**k))
+        U_top, U_bot = U[::2], U[1::2]
+        U[::2], U[1::2] = c*U_top + s*U_bot, s*U_top - c*U_bot
 
     # return i*
-    return np.argmax(X.flat)
+    return np.argmax(U.flat)
 
 

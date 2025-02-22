@@ -48,11 +48,9 @@ if do_check:
                         for i in range(M):
                             mem += hrr.bind(A[i], V[kind][idx[i]])
     
-                        # read memory and clean
-                        idx_clean = np.empty(M, dtype=int)
-                        for i in range(M):
-                            u = hrr.unbind(mem, A[i])
-                            idx_clean[i] = (V[kind] @ u).argmax()
+                        # read memory and clean in batches
+                        reads = np.stack([hrr.unbind(mem, a) for a in A], axis=-1)
+                        idx_clean = (V[kind] @ reads).argmax(axis=0)
     
                         # check success
                         success[kind][K_N, K_M].append( (idx == idx_clean).all() )
@@ -79,16 +77,12 @@ if do_check:
 
                     # check success
                     success[kind][K_N, K_M].append( (idx == idx_clean).all() )
-            
-            # print(f"here {K_N} {K_N_max_direct} {K_M} {kind}")
-            # print(success)
-            # input('.')
 
     with open("krop_capacity.pkl","wb") as f: pk.dump(success, f)
 
 with open("krop_capacity.pkl","rb") as f: success = pk.load(f)
 
-K_Ms = (0, 4, 8)
+K_Ms = (1, 6)
 
 rcParams["font.family"] = "serif"
 rcParams["text.usetex"] = True
@@ -100,7 +94,9 @@ markers = {
     "krop": "o",
 }
 
-fig, axs = pt.subplots(1, len(K_Ms), figsize=(6,3), constrained_layout=True)
+fig, axs = pt.subplots(1, len(K_Ms)+1, figsize=(8,3), constrained_layout=True)
+
+# representative samples
 for m, K_M in enumerate(K_Ms):
     M = 2**K_M
 
@@ -122,11 +118,7 @@ for m, K_M in enumerate(K_Ms):
     if m > 0: axs[m].set_yticks([])
     if m == 0: axs[m].legend()
 
-fig.supxlabel("$N$")
-pt.savefig("krop_success.eps")
-pt.show()
-
-pt.figure(figsize=(3.5,3))
+# overall capacity
 for kind in kinds:
     capacities = {}
     for (K_N, K_M), data in success[kind].items():
@@ -137,13 +129,62 @@ for kind in kinds:
 
     K_Ns = sorted([K_N for K_N in capacities.keys()])
     Ms = sorted([capacities[K_N] for K_N in K_Ns])
-    pt.plot(2**np.array(K_Ns), Ms, color='k', linestyle='-', marker=markers[kind], mfc="none", mec="k", label=kind)
+    axs[-1].plot(2**np.array(K_Ns), Ms, color='k', linestyle='-', marker=markers[kind], mfc="none", mec="k", label=kind)
 
-pt.xlabel("$N$")
-pt.ylabel("Capacity")
-pt.xscale("log",base=2)
-pt.yscale("log",base=2)
-pt.legend()
-pt.tight_layout()
-pt.savefig("krop_capacity.eps")
+axs[-1].set_ylabel("Capacity")
+axs[-1].set_xscale("log",base=2)
+axs[-1].set_yscale("log",base=2)
+
+fig.supxlabel("$N$")
+pt.savefig("krop_success_capacity.eps")
 pt.show()
+
+
+
+# fig, axs = pt.subplots(1, len(K_Ms), figsize=(5,3), constrained_layout=True)
+# for m, K_M in enumerate(K_Ms):
+#     M = 2**K_M
+
+#     for kind in kinds:
+#         print(f"kind {kind}...")
+#         if kind in ("normal", "binary"):
+#             x = 2**np.array([K_N for K_N in range(K_N_min, K_N_max_direct+1) if (K_N, K_M) in success[kind]])
+#             y = [np.mean(success[kind][K_N, K_M]) for K_N in range(K_N_min, K_N_max_direct+1) if (K_N, K_M) in success[kind]]
+#         else:
+#             x = 2**np.array([K_N for K_N in range(K_N_min, K_N_max+1) if (K_N, K_M) in success[kind]])
+#             y = [np.mean(success[kind][K_N, K_M]) for K_N in range(K_N_min, K_N_max+1) if (K_N, K_M) in success[kind]]
+#         axs[m].plot(x, y, color='k', linestyle='-', marker=markers[kind], mfc="none", mec="k", label=kind)
+
+#     axs[m].set_title(f"$M = {M}$")
+#     if m == 0: axs[m].set_ylabel("Success Rate")
+#     # pt.xlabel("Vector dimension")
+#     axs[m].set_xscale("log", base=2)
+#     axs[m].set_ylim([-.1, 1.1])
+#     if m > 0: axs[m].set_yticks([])
+#     if m == 0: axs[m].legend()
+
+# fig.supxlabel("$N$")
+# pt.savefig("krop_success.eps")
+# pt.show()
+
+# pt.figure(figsize=(3.5,3))
+# for kind in kinds:
+#     capacities = {}
+#     for (K_N, K_M), data in success[kind].items():
+#         if K_N not in capacities and len(data) > 0:
+#             capacities[K_N] = 0
+#         if len(data) > 0 and np.all(data):
+#             capacities[K_N] = max(capacities[K_N], 2**K_M)
+
+#     K_Ns = sorted([K_N for K_N in capacities.keys()])
+#     Ms = sorted([capacities[K_N] for K_N in K_Ns])
+#     pt.plot(2**np.array(K_Ns), Ms, color='k', linestyle='-', marker=markers[kind], mfc="none", mec="k", label=kind)
+
+# pt.xlabel("$N$")
+# pt.ylabel("Capacity")
+# pt.xscale("log",base=2)
+# pt.yscale("log",base=2)
+# pt.legend()
+# pt.tight_layout()
+# pt.savefig("krop_capacity.eps")
+# pt.show()
