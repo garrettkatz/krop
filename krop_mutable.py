@@ -4,7 +4,7 @@ import matplotlib.pyplot as pt
 from matplotlib import rcParams
 import hrr, krop
 
-do_check = True
+do_check = False
 K_N_min = 2
 K_N_max_direct = 12
 K_N_max = 15
@@ -103,7 +103,7 @@ markers = {
     "krop": "o",
 }
 
-K_Ms, K_Ns = (3,3,8), (8,10,K_N_max)
+K_Ms, K_Ns = (3,5), (8,11)
 fig, axs = pt.subplots(1, len(K_Ms), figsize=(8,2.5), constrained_layout=True)
 for m, (K_M, K_N) in enumerate(zip(K_Ms, K_Ns)):
     N = 2**K_N
@@ -112,25 +112,23 @@ for m, (K_M, K_N) in enumerate(zip(K_Ms, K_Ns)):
         kind: np.array([retrieval_rate[kind][K_N, K_M, rep] for rep in range(num_reps) if (K_N, K_M, rep) in retrieval_rate[kind]])
         for kind in kinds}
 
-    print(N,M)
-    print(rates)
-    
     for kind in kinds:
         axs[m].plot(rates[kind].mean(axis=0), 'k-' + markers[kind], mfc="none", label=kind)
     if m == 0:
         axs[m].set_ylabel("Retrieval Rate")
-        axs[m].legend(loc="right")
     else:
         axs[m].set_yticks([])
+        axs[m].legend(loc="right")
     axs[m].set_ylim([-.1,1.1])
-    axs[m].set_title(f"M={M}, N={N}")
+    axs[m].set_title(f"$M={M}$, $N={N}$")
 fig.supxlabel("Time-step")
 pt.savefig("krop_mutable_sample.eps")
 pt.show()
 
 # K_Ms = np.linspace(0, K_N_max_direct-2, 4).round().astype(int)
 # K_Ms = tuple(range(5,9))
-K_Ms = tuple(range(0,K_N_max-1))
+# K_Ms = tuple(range(K_N_max-1))
+K_Ms = (2,4,6,8)
 K_Ns = np.arange(K_N_min, K_N_max+1)
 
 fig, axs = pt.subplots(1, len(K_Ms), figsize=(8,2.5), constrained_layout=True)
