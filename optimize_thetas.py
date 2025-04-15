@@ -31,60 +31,55 @@ def make_matrix(thetas):
 
 if __name__ == "__main__":
 
-    # empirical optima?
-    H_a = make_matrix(tr.tensor([1.5708, 3.1416]))
-    H_v = make_matrix(tr.tensor([1.5480, 4.6729]))
-    pt.subplot(1,2,1)
-    pt.imshow(H_a)
-    pt.colorbar()
-    pt.subplot(1,2,2)
-    pt.imshow(H_v)
-    pt.colorbar()
-    pt.show()
+    # # empirical optima?
+    # H_a = make_matrix(tr.tensor([1.5708, 3.1416]))
+    # H_v = make_matrix(tr.tensor([1.5480, 4.6729]))
+    # pt.subplot(1,2,1)
+    # pt.imshow(H_a)
+    # pt.colorbar()
+    # pt.subplot(1,2,2)
+    # pt.imshow(H_v)
+    # pt.colorbar()
+    # pt.show()
 
-    thetas = tr.linspace(0, 2*tr.pi, 6)[1:-1]
-    thetas.requires_grad_(True)
-    H = make_matrix(thetas)
-    print(H.detach().numpy().round(3))
-    print((H @ H).detach().numpy().round(3))
+    # thetas = tr.linspace(0, 2*tr.pi, 6)[1:-1]
+    # thetas.requires_grad_(True)
+    # H = make_matrix(thetas)
+    # print(H.detach().numpy().round(3))
+    # print((H @ H).detach().numpy().round(3))
 
-    # test gradient flow
-    H.sum().backward()
-    print(thetas.grad.numpy().round(3))
-    thetas.grad[:] = 0.
+    # # test gradient flow
+    # H.sum().backward()
+    # print(thetas.grad.numpy().round(3))
+    # thetas.grad[:] = 0.
 
-    pt.imshow(H.detach())
-    pt.colorbar()
-    pt.show()
-
-    # test optimize
-    for itr in range(100):
-        H = make_matrix(thetas)
-        loss = H.sum()
-        loss.backward()
-        thetas.data = thetas.data - 0.01*thetas.grad
-        thetas.grad[:] = 0.
-        print(f"{itr}: {loss:.3f}")
-
-    print(H.detach().numpy().round(3))
-    print(thetas.detach().numpy().round(3))
-    input('.')
+    # pt.imshow(H.detach())
+    # pt.colorbar()
+    # pt.show()
 
     # optimize address and value codebooks for reliable recall
+    K = 7
     num_memories = 2
     lr = 0.001
-    thetas_a = (2 * tr.pi * tr.rand(4)).requires_grad_(True)
-    thetas_v = (2 * tr.pi * tr.rand(4)).requires_grad_(True)
+    thetas_a = (2 * tr.pi * tr.rand(K)).requires_grad_(True)
+    thetas_v = (2 * tr.pi * tr.rand(K)).requires_grad_(True)
+    # thetas_a = tr.linspace(0, 2 * tr.pi, K+2)[1:-1].requires_grad_(True)
+    # thetas_v = tr.linspace(0, 2 * tr.pi, K+2)[1:-1].requires_grad_(True)
+    optimizer = tr.optim.Adam([thetas_a, thetas_v], lr=lr)
     loss_curve, success_curve = [], []
-    for itr in range(300):
+    for itr in range(10000):
         # remake codebooks with current thetas
         H_a = make_matrix(thetas_a)
         H_v = make_matrix(thetas_v)
 
-        # accumulate loss and gradient over sample
+        # accumulate loss and gradient over possible memory states
         success = []
         loss = 0.
-        for sample in range(100):
+        # a_idx_gen = it.combinations(range(len(H_a)), r=num_memories)
+        # v_idx_gen = it.product(range(len(H_v)), repeat=num_memories)
+        # print(len(H_a)*(len(H_a)-1) / 2 * len(H_v)**2)
+        # for (a_idx, v_idx) in it.product(a_idx_gen, v_idx_gen):
+        for sample in range(30):
             a_idx = np.random.choice(range(len(H_a)), size=num_memories, replace=False)
             v_idx = np.random.choice(range(len(H_v)), size=num_memories)
 
@@ -110,10 +105,8 @@ if __name__ == "__main__":
 
         # update thetas
         loss.backward()
-        thetas_a.data = thetas_a.data - lr * thetas_a.grad
-        thetas_v.data = thetas_v.data - lr * thetas_v.grad
-        thetas_a.grad[:] = 0
-        thetas_v.grad[:] = 0
+        optimizer.step()
+        optimizer.zero_grad()
 
         # status update
         loss_curve.append(loss.item())
@@ -125,7 +118,13 @@ if __name__ == "__main__":
     print((thetas_a.data % (2*tr.pi)) / (2*tr.pi))
     print((thetas_v.data % (2*tr.pi)) / (2*tr.pi))
 
+    pt.subplot(1,2,1)
     pt.plot(loss_curve)
+    pt.ylabel("cross entropy loss")
+    pt.subplot(1,2,2)
+    pt.plot(success_curve)
+    pt.ylabel("success rate")
+    pt.gcf().supxlabel("Iterations")
 
     pt.figure()
     pt.subplot(1,2,1)
