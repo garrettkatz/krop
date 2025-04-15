@@ -1,6 +1,9 @@
+import numpy as np
 import matplotlib.pyplot as pt
 import itertools as it
 import torch as tr
+
+# important to minimize round-off error
 tr.set_default_dtype(tr.float64)
 
 # torch versions of key functions
@@ -39,7 +42,7 @@ if __name__ == "__main__":
     pt.colorbar()
     pt.show()
 
-    thetas = tr.linspace(0, 2*tr.pi, 4)[1:-1]
+    thetas = tr.linspace(0, 2*tr.pi, 6)[1:-1]
     thetas.requires_grad_(True)
     H = make_matrix(thetas)
     print(H.detach().numpy().round(3))
@@ -68,27 +71,42 @@ if __name__ == "__main__":
     input('.')
 
     # optimize address and value codebooks for reliable recall
+    num_memories = 2
     lr = 0.001
-    thetas_a = (2 * tr.pi * tr.rand(2)).requires_grad_(True)
-    thetas_v = (2 * tr.pi * tr.rand(2)).requires_grad_(True)
-    loss_curve = []
-    for itr in range(10000):
+    thetas_a = (2 * tr.pi * tr.rand(4)).requires_grad_(True)
+    thetas_v = (2 * tr.pi * tr.rand(4)).requires_grad_(True)
+    loss_curve, success_curve = [], []
+    for itr in range(300):
         # remake codebooks with current thetas
         H_a = make_matrix(thetas_a)
         H_v = make_matrix(thetas_v)
 
-        # accumulate loss and gradient over each possible pair
-        # (could sub-sample to scale up)
+        # accumulate loss and gradient over sample
+        success = []
         loss = 0.
-        for (i,j) in it.product(range(len(H_a)), repeat=2):
-            # bind address and value
-            a, v = H_a[i], H_v[j]
-            M = bind(a, v)
-    
-            # penalize bad unbind and cleanup
-            u = unbind(M, a)
-            dots = tr.softmax(H_v @ u, dim=0)
-            loss += tr.nn.functional.cross_entropy(dots, tr.tensor(j))
+        for sample in range(100):
+            a_idx = np.random.choice(range(len(H_a)), size=num_memories, replace=False)
+            v_idx = np.random.choice(range(len(H_v)), size=num_memories)
+
+            # bind addresses and values
+            M = tr.zeros(len(H_a))
+            for (i_a, i_v) in zip(a_idx, v_idx):
+                a, v = H_a[i_a], H_v[i_v]
+                M = M + bind(a, v)
+
+            # unbind noisy values
+            U = []
+            for (i_a, i_v) in zip(a_idx, v_idx):
+                a = H_a[i_a]
+                u = unbind(M, a)
+                U.append(u)
+            U = tr.stack(U)
+
+            # calculate loss and success rate
+            dots = U @ H_v
+            targets = tr.tensor(v_idx)
+            loss += tr.nn.functional.cross_entropy(dots, targets)
+            success.append((dots.argmax(dim=-1) == targets).all())
 
         # update thetas
         loss.backward()
@@ -99,14 +117,25 @@ if __name__ == "__main__":
 
         # status update
         loss_curve.append(loss.item())
-        if itr % 100 == 0: print(f"{itr}: {loss:.3f}")
+        success_curve.append(np.mean(success))
+        if itr % 100 == 0: print(f"{itr}: loss = {loss:.3f}, success rate = {int(success_curve[-1]*100)}%")
             
 
     print("thetas_a,v:")
-    print(thetas_a.data)
-    print(thetas_v.data)
+    print((thetas_a.data % (2*tr.pi)) / (2*tr.pi))
+    print((thetas_v.data % (2*tr.pi)) / (2*tr.pi))
 
     pt.plot(loss_curve)
+
+    pt.figure()
+    pt.subplot(1,2,1)
+    pt.imshow(H_a.detach())
+    pt.title("Addresses")
+    pt.colorbar()
+    pt.subplot(1,2,2)
+    pt.imshow(H_v.detach())
+    pt.title("Values")
+    pt.colorbar()
     pt.show()
 
 
