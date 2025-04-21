@@ -58,16 +58,16 @@ if __name__ == "__main__":
     # pt.show()
 
     # optimize address and value codebooks for reliable recall
-    K = 7
+    K = 6
     num_memories = 2
-    lr = 0.001
+    lr = 0.005
     thetas_a = (2 * tr.pi * tr.rand(K)).requires_grad_(True)
     thetas_v = (2 * tr.pi * tr.rand(K)).requires_grad_(True)
     # thetas_a = tr.linspace(0, 2 * tr.pi, K+2)[1:-1].requires_grad_(True)
     # thetas_v = tr.linspace(0, 2 * tr.pi, K+2)[1:-1].requires_grad_(True)
     optimizer = tr.optim.Adam([thetas_a, thetas_v], lr=lr)
     loss_curve, success_curve = [], []
-    for itr in range(10000):
+    for itr in range(1000):
         # remake codebooks with current thetas
         H_a = make_matrix(thetas_a)
         H_v = make_matrix(thetas_v)
@@ -79,9 +79,12 @@ if __name__ == "__main__":
         # v_idx_gen = it.product(range(len(H_v)), repeat=num_memories)
         # print(len(H_a)*(len(H_a)-1) / 2 * len(H_v)**2)
         # for (a_idx, v_idx) in it.product(a_idx_gen, v_idx_gen):
-        for sample in range(30):
-            a_idx = np.random.choice(range(len(H_a)), size=num_memories, replace=False)
-            v_idx = np.random.choice(range(len(H_v)), size=num_memories)
+        # for sample in range(30):
+        #     a_idx = np.random.choice(range(len(H_a)), size=num_memories, replace=False)
+        #     v_idx = np.random.choice(range(len(H_v)), size=num_memories)
+        a_idx = np.arange(2) # use first two addresses
+        for combo, v_idx in enumerate(it.product(range(len(H_v)), repeat=num_memories)):
+            # print(f" {combo} of {len(H_v)**num_memories}")
 
             # bind addresses and values
             M = tr.zeros(len(H_a))
@@ -111,7 +114,10 @@ if __name__ == "__main__":
         # status update
         loss_curve.append(loss.item())
         success_curve.append(np.mean(success))
-        if itr % 100 == 0: print(f"{itr}: loss = {loss:.3f}, success rate = {int(success_curve[-1]*100)}%")
+        if itr % 1 == 0:
+            print(f"{itr}: loss = {loss:.3f}, success rate = {int(success_curve[-1]*100)}%, " +\
+                f"{thetas_a.data % (2*tr.pi)/ (2*tr.pi)}, " +\
+                f"{thetas_v.data % (2*tr.pi)/ (2*tr.pi)}")
             
 
     print("thetas_a,v:")
