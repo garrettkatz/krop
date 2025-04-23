@@ -5,9 +5,9 @@ import numpy as np
 import sympy as sp
 from sympy.physics.quantum.tensorproduct import TensorProduct
 
-do_sampling = True
-sampling = 40
-K = 4
+do_sampling = False
+sampling = 30
+K = 3
 
 # symbolic
 
@@ -35,10 +35,10 @@ for r, dots in enumerate(dots_s):
     print(repr(dots.reshape(2**(2*K), 1)))
 
 # numerical
+th_n = np.linspace(0, 2*np.pi, sampling)
 if do_sampling:
 
     H_n = np.empty((sampling,)*K + (2**K, 2**K))
-    th_n = np.linspace(0, 2*np.pi, sampling)
     outer_j = -1
     for js in it.product(range(sampling), repeat=K):
         if js[0] != outer_j:
@@ -50,163 +50,87 @@ if do_sampling:
                 np.array([[np.cos(th_n[j]), np.sin(th_n[j])], [np.sin(th_n[j]), -np.cos(th_n[j])]]))
         H_n[js] = H_js
     
-    dots_n = np.full(H_n.shape, -np.inf)
+    dots_n = np.full((2**K-1,) + H_n.shape, -np.inf)
+    # dots_n = np.full(H_n.shape, -np.inf)
     for r in range(1, 2**K):
         print(r)
         Hr = H_n[..., np.roll(idx, r).tolist(), :]
-        # dots_n[r-1] =  H_n @ Hr # too much space needed
-        dots_n = np.maximum(dots_n, np.fabs(H_n @ Hr))
+        dots_n[r-1] =  H_n @ Hr # uses more space needed
+        # dots_n = np.maximum(dots_n, np.fabs(H_n @ Hr)) # to save space
 
     with open(f"hand_thetas_{K}_{sampling}.pkl", "wb") as f: pk.dump(dots_n, f)
 
 with open(f"hand_thetas_{K}_{sampling}.pkl", "rb") as f: dots_n = pk.load(f)
 
-# worst = np.fabs(dots_n).max(axis=(0, -2, -1))
-worst = dots_n.max(axis=(-2, -1))
-best = worst.min()
-jb = np.unravel_index(worst.argmin(), worst.shape)
-print(jb, worst[jb], worst.min())
+# K = 2, looking for M capacity with optimal choice of rolls and embeddings
+# dots_n[roll, th0, th1, i, j] is dot between H[i] and roll(H[j])
+# need |H[i] @ roll(H[j])| < 1/(2*(M-1)) for optimal choice of roll and i,j
 
-if K == 2:
+M = 3
 
-    pt.imshow(worst)
-    pt.colorbar()
-    pt.plot(*jb[::-1], 'ro')
-    pt.show()
+found_feas = False
+for r in it.combinations(range(2**K - 1), r=M-1):
+    for idx in it.combinations(range(2**K), r=M):
+        idx = np.array(idx)
+        dots_nr = np.fabs(dots_n)[list(r)].max(axis=0)
+        dots_ridx = dots_nr[...,idx[:,None],idx]
+        # print(r, idx, dots_ridx.shape)
+        # input('.')
+        # dots_ridx = dots_nr[...,:,idx] # cleanup will check with all if you let it
+        worst = dots_ridx.max(axis=(-2, -1))
+        best = worst.min()
+        if best < 0.5 / (M-1):
+            jb = np.unravel_index(worst.argmin(), worst.shape)
+            valid_idxs = idx
+            valid_roll = [0] + [_+1 for _ in r]
+            print(f"roll {valid_roll} idx {valid_idxs} jb {jb} best {best}")
+            print(f"thetas {th_n[list(jb)]}")
+
+            # pt.imshow(dots_n[(r,)+jb])
+            print(dots_n.shape, dots_ridx.shape, worst.shape)
+            pt.imshow(worst[jb[:-2]])
+            pt.plot(jb[-1], jb[-2], 'ro')
+            pt.colorbar()
+            pt.show()
+
+            found_feas = True
+
+        if found_feas: break
+    if found_feas: break
 
 
-# idx = np.arange(2**K)
-# dots_s = []
-# dots_n = np.empty((sampling, sampling, 2**K - 1, 2**K, 2**K))
-# th_n = np.linspace(0, 2*np.pi, sampling)
-# for r in range(2**K-1):
+# check
+th = th_n[list(jb)]
+H = np.array([[1.]])
+for th_j in th:
+    H = np.kron(H, 
+        np.array([[np.cos(th_j), np.sin(th_j)], [np.sin(th_j), -np.cos(th_j)]]))
 
-#     # symbolic
-#     Hr = H_s[:, np.roll(idx, r+1).tolist()]
-#     dots.append( H_s @ Hr.T )
+print(H)
 
-#     # numerical
-#     dots_n[
+correct = []
+for rep in range(30):
 
-# H1 = sp.Matrix([[sp.cos(t1), sp.sin(t1)], [sp.sin(t1), -sp.cos(t1)]])
-# H2 = sp.Matrix([[sp.cos(t2), sp.sin(t2)], [sp.sin(t2), -sp.cos(t2)]])
-# H = TensorProduct(H1, H2)
+    v_idx = np.random.choice(valid_idxs, size=M)
+    mem = 0
+    for (r, v_i) in enumerate(v_idx):
+        mem += np.roll(H[v_i], valid_roll[r])
 
-# theta = np.linspace(0, 2*np.pi, 100)
+    print('v_idx', v_idx)
+    print('mem', mem)
 
-# tsc = 2*np.sin(theta)*np.cos(theta)
-# sdf = np.sin(theta)**2 - np.cos(theta)**2
+    all_right = True
+    for (r, v_i) in enumerate(v_idx):
+        idx_i = (H[valid_idxs,:] @ np.roll(mem, -valid_roll[r])).argmax()
+        if v_i != valid_idxs[idx_i]:
+            all_right = False
+            print('break roll v_i v_i\'', valid_roll[r], v_i, valid_idxs[idx_i])
+            break
 
-# print(2*np.sin(np.pi/8)*np.cos(np.pi/8))
-# print(np.sin(np.pi/8)**2 - np.cos(np.pi/8)**2)
+    print(all_right)
+    input('.')
 
-# # pt.plot(theta, tsc)
-# # pt.plot(theta, sdf)
-# # pt.plot(theta, -tsc)
-# # pt.plot(theta, -sdf)
-# # pt.plot(theta, np.maximum(np.maximum(tsc, sdf), np.maximum(-tsc, -sdf)), 'r--')
-# # pt.show()
+    correct.append(all_right)
 
-# theta = np.pi/8
-# H = np.array([[np.cos(theta), np.sin(theta)],[np.sin(theta),-np.cos(theta)]])
-# print(H)
-
-# # v = H[0] + np.roll(H[1], 1)
-# # v = H[0] + np.roll(H[0], 1)
-# # v = H[1] + np.roll(H[1], 1)
-# v = H[1] + np.roll(H[0], 1)
-# print(v)
-# print(H @ v)
-# print(H @ np.roll(v, -1))
-
-# t1, t2 = sp.symbols("t1 t2")
-# H1 = sp.Matrix([[sp.cos(t1), sp.sin(t1)], [sp.sin(t1), -sp.cos(t1)]])
-# H2 = sp.Matrix([[sp.cos(t2), sp.sin(t2)], [sp.sin(t2), -sp.cos(t2)]])
-# H = TensorProduct(H1, H2)
-
-# print(repr(H))
-# print(repr(H.subs(t1, 0).subs(t2, 0)))
-
-# Hr = H[:,[1,2,3,0]]
-
-# print(repr(H))
-# # print(repr(Hr))
-# print(repr(Hr.T))
-# print(repr((H @ Hr.T)[:,0]))
-
-# rolls = [
-#     [1,2,3,0],
-#     [2,3,0,1],
-#     [3,0,1,2],
-# ]
-
-# sampling = 100
-# thetas = np.linspace(0, 2*np.pi, sampling)
-
-# numerical = np.empty((sampling, sampling, len(rolls), 4, 4))
-
-# if do_search:
-
-#     for r, roll in enumerate(rolls):
-#         Hr = H[:,roll]
-#         HHrT = H @ Hr.T
-#         for (i,j) in it.product(range(sampling), repeat=2):
-#             print(r,i,j)
-#             numerical[i,j,r] = HHrT.subs(t1, thetas[i]).subs(t2, thetas[j])
-
-#     with open(f"hand_thetas_2_{sampling}.pkl", "wb") as f: pk.dump(numerical, f)
-
-# with open(f"hand_thetas_2_{sampling}.pkl", "rb") as f: numerical = pk.load(f)
-
-# # worst = np.fabs(numerical).max(axis=(2,3,4))
-
-# # valid_idxs = [0, 1, 2, 3] # only use these for address/value
-# # numerical = numerical[:,:,:,valid_idxs,[valid_idxs]]
-# valid_idxs = [0, 2] # only use these for address/value
-# numerical = numerical[:,:,:,::2,::2]
-
-# worst = np.fabs(numerical).max(axis=(2,3,4))
-# (ib, jb) = np.unravel_index(worst.argmin(), worst.shape)
-# print(ib, jb, worst[ib,jb], worst.min())
-
-# print("normalized:")
-# print(thetas[ib] / (2*np.pi), thetas[jb] / (2*np.pi))
-
-# pt.imshow(worst)
-# pt.colorbar()
-# pt.plot(jb, ib, 'ro')
-# pt.show()
-
-# for r in range(3):
-#     print(r)
-#     print(numerical[ib,jb,r])
-
-# # check
-# t1, t2 = thetas[[ib, jb]]
-
-# H = np.kron(
-#     np.array([[np.cos(t1), np.sin(t1)], [np.sin(t1), -np.cos(t1)]]),
-#     np.array([[np.cos(t2), np.sin(t2)], [np.sin(t2), -np.cos(t2)]])
-# )
-
-# print(H)
-
-# correct = []
-# for rep in range(30):
-
-#     num_mem = 2
-#     # a_idx = np.random.choice(range(4), size=num_mem, replace=False)
-#     a_idx = np.random.choice(valid_idxs, size=num_mem, replace=False)
-#     v_idx = np.random.choice(valid_idxs, size=num_mem)
-#     mem = 0
-#     for (a_i, v_i) in zip(a_idx, v_idx):
-#         mem += np.roll(H[v_i], a_i)
-    
-#     all_right = True
-#     for (a_i, v_i) in zip(a_idx, v_idx):
-#         if v_i != (H @ np.roll(mem, -a_i)).argmax(): all_right = False
-
-#     correct.append(all_right)
-
-# print(f"success rate = {np.mean(correct)}")
+print(f"success rate = {np.mean(correct)}")
 
