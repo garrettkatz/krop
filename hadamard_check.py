@@ -1,7 +1,7 @@
 import itertools as it
 import numpy as np
 
-K = 5
+K = 3
 H = np.array([[1]])
 for _ in range(K):
     H = np.block([[H, H], [H, -H]])
@@ -19,35 +19,35 @@ xor = np.arange(2**K)[:,None] ^ np.arange(2**K)
 print(xor)
 assert (xor == mapping).all()
 
-# brute force search for M=3 addresses and values
-M = 5
-input(f"M={M} requires N = M log2 M = {M * np.log2(M)}, you have N = 2**{K} = {2**K}...")
-found = False
+# # brute force search for M=3 addresses and values
+# M = 5
+# input(f"M={M} requires N = M log2 M = {M * np.log2(M)}, you have N = 2**{K} = {2**K}...")
+# found = False
+# # for a in map(np.array, it.combinations(range(2**K), r=M)):
+# #     print(a)
+# #     for v in map(np.array, it.combinations(range(2**K), r=M)):
+# # combos = list(it.combinations(range(2**K), r=M))
+# # for i, a in enumerate(map(np.array, combos)):
 # for a in map(np.array, it.combinations(range(2**K), r=M)):
 #     print(a)
-#     for v in map(np.array, it.combinations(range(2**K), r=M)):
-# combos = list(it.combinations(range(2**K), r=M))
-# for i, a in enumerate(map(np.array, combos)):
-for a in map(np.array, it.combinations(range(2**K), r=M)):
-    print(a)
-    leftover = set(range(2**K)) - set(a) | set([0])
-    # for j in range(i+1, len(combos)):
-        # v = np.array(combos[j])
-    for v in map(np.array, it.combinations(sorted(leftover), r=M)):
-        Ma = mapping[a[:,None], a]
-        Mv = mapping[v[:,None], v]
-        inter = set(Ma.flat) & set(Mv.flat)
-        if inter != set([0]): continue
-        found = True
-        print("a,v:", a, v)
-        print("Ma;Mv:")
-        print(Ma)
-        print(Mv)
-        print("inter:")
-        print(inter)
+#     leftover = set(range(2**K)) - set(a) | set([0])
+#     # for j in range(i+1, len(combos)):
+#         # v = np.array(combos[j])
+#     for v in map(np.array, it.combinations(sorted(leftover), r=M)):
+#         Ma = mapping[a[:,None], a]
+#         Mv = mapping[v[:,None], v]
+#         inter = set(Ma.flat) & set(Mv.flat)
+#         if inter != set([0]): continue
+#         found = True
+#         print("a,v:", a, v)
+#         print("Ma;Mv:")
+#         print(Ma)
+#         print(Mv)
+#         print("inter:")
+#         print(inter)
 
-        if found: break
-    if found: break
+#         if found: break
+#     if found: break
 
 # con = np.arange(2**K)[:,None] & np.arange(2**K)
 # print(con)
@@ -56,4 +56,27 @@ for a in map(np.array, it.combinations(range(2**K), r=M)):
 # for (i,j) in it.product(range(len(H)), repeat=2):
 #     mx[i,j] = (H == (H[i] * H[j])).all(axis=1).argmax()
 
+
+# A, V = np.split(H, 2)
+A, V = H[:2**(K-1)], H[2**(K-1):]
+
+f = g = lambda x: V[0] * x # V[0] * negates second half, f is its own inverse
+
+print(A)
+print(V)
+
+refmem = np.random.choice(len(V), size=2)
+print(refmem)
+
+vsamem = 0
+for i, j in enumerate(refmem):
+    vsamem += A[i] * f(V[j])
+    print(vsamem)
+
+for i, j in enumerate(refmem):
+    out = g(A[i] * vsamem)
+    print(i,j)
+    print(out)
+    print(V @ out)
+    assert (V @ out).argmax() == j
 
