@@ -1,7 +1,7 @@
 import itertools as it
 import numpy as np
 
-K = 4
+K = 3
 H = np.array([[1]])
 for _ in range(K):
     H = np.block([[H, H], [H, -H]])
@@ -56,15 +56,33 @@ assert (xor == mapping).all()
 # for (i,j) in it.product(range(len(H)), repeat=2):
 #     mx[i,j] = (H == (H[i] * H[j])).all(axis=1).argmax()
 
-for r in range(1,2**(K-1)):
-    Hr = np.roll(H, -r)
-    print(Hr)
+# for r in range(1,2**(K-1)):
+#     Hr = np.roll(H, -r)
+#     print(Hr)
     
-    abHr = H[:2**(K-1),None,:] * Hr[None,:,:] # A2 x V x row
-    abHrHrT = abHr @ Hr.T # A2 x V x V
-    mx = np.fabs(abHrHrT).max(axis=0) # V x V
+#     abHr = H[:2**(K-1),None,:] * Hr[None,:,:] # A2 x V x row
+#     abHrHrT = abHr @ Hr.T # A2 x V x V
+#     mx = np.fabs(abHrHrT).max(axis=0) # V x V
     
-    print(mx)    
-    idx = np.array([0,3,4])
-    print(mx[idx[:,None], idx])
+#     print(mx)    
+#     idx = np.array([0,3,4])
+#     print(mx[idx[:,None], idx])
     
+odds = H[1::2, :]
+print('odds:')
+print(odds)
+print('even times odd')
+print(mapping[1::2,::2])
+
+# prods = (odds[None,:,:] * odds[:,None,:])
+prods = (H[None,1::2,:] * H[::2,None,:])
+# change diagonals
+for i in range(len(prods)):
+    prods[i,i,:] = 1
+print("prods[:,:,n]:")
+for n in range(2**K):
+    print(n)
+    print(prods[:,:,n])
+    U, S, Vh = np.linalg.svd(prods[:,:,n])
+    print(S)
+    print(U[:,0], Vh[0,:])
