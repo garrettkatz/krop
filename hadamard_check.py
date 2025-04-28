@@ -1,7 +1,7 @@
 import itertools as it
 import numpy as np
 
-K = 3
+K = 4
 H = np.array([[1]])
 for _ in range(K):
     H = np.block([[H, H], [H, -H]])
@@ -56,27 +56,15 @@ assert (xor == mapping).all()
 # for (i,j) in it.product(range(len(H)), repeat=2):
 #     mx[i,j] = (H == (H[i] * H[j])).all(axis=1).argmax()
 
-
-# A, V = np.split(H, 2)
-A, V = H[:2**(K-1)], H[2**(K-1):]
-
-f = g = lambda x: V[0] * x # V[0] * negates second half, f is its own inverse
-
-print(A)
-print(V)
-
-refmem = np.random.choice(len(V), size=2)
-print(refmem)
-
-vsamem = 0
-for i, j in enumerate(refmem):
-    vsamem += A[i] * f(V[j])
-    print(vsamem)
-
-for i, j in enumerate(refmem):
-    out = g(A[i] * vsamem)
-    print(i,j)
-    print(out)
-    print(V @ out)
-    assert (V @ out).argmax() == j
-
+for r in range(1,2**(K-1)):
+    Hr = np.roll(H, -r)
+    print(Hr)
+    
+    abHr = H[:2**(K-1),None,:] * Hr[None,:,:] # A2 x V x row
+    abHrHrT = abHr @ Hr.T # A2 x V x V
+    mx = np.fabs(abHrHrT).max(axis=0) # V x V
+    
+    print(mx)    
+    idx = np.array([0,3,4])
+    print(mx[idx[:,None], idx])
+    
