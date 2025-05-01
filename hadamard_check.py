@@ -5,6 +5,8 @@ import cvxpy as cp
 from pyscipopt import Model, quicksum
 
 K = 3
+N = 2**K
+M = 4 # 2**(K-1)
 H = np.array([[1]])
 for _ in range(K):
     H = np.block([[H, H], [H, -H]])
@@ -21,6 +23,101 @@ print(mapping)
 xor = np.arange(2**K)[:,None] ^ np.arange(2**K)
 print(xor)
 assert (xor == mapping).all()
+
+V = H[:M]
+vertices = np.array([v for v in it.product((+1,-1), repeat=N)])
+
+found = False
+sprouts = {(i,): True for i in range(2**N)} # sprout: feasible
+for m in range(2, M+1):
+    print(f" sprouting m = {m} of {M}, {len(sprouts)} sprouts...")
+    new_sprouts = {}
+    for s, sprout in enumerate(sprouts):
+        print(f"{s} of {len(sprouts)}: growing sprout {sprout}")
+        for v in range(sprout[-1]+1, 2**N):
+            new_sprout = sprout + (v,)
+            new_sprouts[new_sprout] = True
+
+            for (i,j) in it.combinations(new_sprout, r=2):
+                dots = V @ (vertices[i] * vertices[j])
+                if not (np.fabs(dots) == 0).all():
+                    new_sprouts[new_sprout] = False
+                    break
+
+            if m == M and new_sprouts[new_sprout]:
+                found = True
+                break
+        
+        if found: break
+
+    sprouts = new_sprouts
+
+# sprouts = {(0, 15, 102): True} # M = 3
+
+
+# all_v = frozenset(range(2**N))
+# sprouts = {frozenset([i]): True for i in range(2**N)} # sprout: feasible
+
+# found = False
+# for m in range(2, M+1):
+#     print(f" sprouting m = {m} of {M}, {len(sprouts)} sprouts...")
+#     new_sprouts = {}
+#     for s, sprout in enumerate(sprouts):
+#         print(f"{s} of {len(sprouts)}: growing sprout {sprout}")
+#         for v in all_v - sprout:
+#             new_sprout = sprout | frozenset([v])
+#             if new_sprout in new_sprouts: continue
+#             new_sprouts[new_sprout] = True
+
+#             # A = vertices[sorted(new_sprout)]
+#             # A2 = (A[:,None,:] * A[None,:,:]).reshape(-1, N)
+#             # dots = V @ A2.T
+#             # if not (np.fabs(dots) == 0).all():
+#             #     new_sprouts[new_sprout] = False
+
+#             # A2 = np.stack([vertices[i] * vertices[j]
+#             #     for (i,j) in it.combinations(new_sprout, r=2)])
+#             # dots = V @ A2.T
+#             # if not (np.fabs(dots) == 0).all():
+#             #     new_sprouts[new_sprout] = False
+
+#             for (i,j) in it.combinations(new_sprout, r=2):
+#                 dots = V @ (vertices[i] * vertices[j])
+#                 if not (np.fabs(dots) == 0).all():
+#                     new_sprouts[new_sprout] = False
+#                     break
+
+#             if m == M and new_sprouts[new_sprout]:
+#                 found = True
+#                 break
+        
+#         if found: break
+
+#     sprouts = new_sprouts
+
+# # sprouts = {frozenset([0, 15, 102]): True} # M = 3
+
+sprouts = [sprout for (sprout, feasible) in sprouts.items() if feasible]
+print(f"{len(sprouts)} feasible sprouts")
+
+if len(sprouts) > 0:
+    sprout = sprouts[0]
+    print(f"first sprout = {sprout}")
+
+    # hand-check
+    A = vertices[sorted(sprout)]
+    print("A:")
+    print(A)
+    print("A**2:")
+    print((A[:,None,:] * A[None,:,:]).reshape(-1, N))
+    print("V:")
+    print(V)
+
+    for (a,b) in it.combinations(A, r=2):
+        for v in V:
+            assert (a*b) @ v == 0
+
+    print("check passed.")
 
 # A2 = H[2**(K-1):]
 # A = np.where(A2 == 1, 0-1j, 0+1j)
