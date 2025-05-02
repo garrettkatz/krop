@@ -1,12 +1,12 @@
 import itertools as it
 import numpy as np
 np.set_printoptions(linewidth=1000)
-import cvxpy as cp
-from pyscipopt import Model, quicksum
+# import cvxpy as cp
+# from pyscipopt import Model, quicksum
 
 K = 3
 N = 2**K
-M = 4 # 2**(K-1)
+M = 3 # 2**(K-1)
 H = np.array([[1]])
 for _ in range(K):
     H = np.block([[H, H], [H, -H]])
@@ -27,30 +27,51 @@ assert (xor == mapping).all()
 V = H[:M]
 vertices = np.array([v for v in it.product((+1,-1), repeat=N)])
 
-found = False
-sprouts = {(i,): True for i in range(2**N)} # sprout: feasible
-for m in range(2, M+1):
-    print(f" sprouting m = {m} of {M}, {len(sprouts)} sprouts...")
-    new_sprouts = {}
-    for s, sprout in enumerate(sprouts):
-        print(f"{s} of {len(sprouts)}: growing sprout {sprout}")
-        for v in range(sprout[-1]+1, 2**N):
-            new_sprout = sprout + (v,)
-            new_sprouts[new_sprout] = True
+# recursive approach
+def rec(sprout):
+    if len(sprout) == M: return sprout
+    best = sprout
+    for v in range(sprout[-1]+1, 2**N):
+        if len(sprout) < 3:
+            print(" "*len(sprout) + str(sprout + (v,)))
+        Ab = vertices[list(sprout)] * vertices[v]
+        dots = V @ Ab.T
+        if not (dots == 0).all(): continue
+        result = rec(sprout + (v,))
+        if len(result) > len(best): best = result
+        if len(result) == M: break
+    return best
+    
+for v in range(2**N - M):
+    print(f"{v} of {2**N - M}...")
+    sprout = rec((v,))
+    if len(sprout) == M: break
 
-            for (i,j) in it.combinations(new_sprout, r=2):
-                dots = V @ (vertices[i] * vertices[j])
-                if not (np.fabs(dots) == 0).all():
-                    new_sprouts[new_sprout] = False
-                    break
 
-            if m == M and new_sprouts[new_sprout]:
-                found = True
-                break
+# found = False
+# sprouts = {(i,): True for i in range(2**N)} # sprout: feasible
+# for m in range(2, M+1):
+#     print(f" sprouting m = {m} of {M}, {len(sprouts)} sprouts...")
+#     new_sprouts = {}
+#     for s, sprout in enumerate(sprouts):
+#         print(f"{s} of {len(sprouts)}: growing sprout {sprout}")
+#         for v in range(sprout[-1]+1, 2**N):
+#             new_sprout = sprout + (v,)
+#             new_sprouts[new_sprout] = True
+
+#             for (i,j) in it.combinations(new_sprout, r=2):
+#                 dots = V @ (vertices[i] * vertices[j])
+#                 if not (np.fabs(dots) == 0).all():
+#                     new_sprouts[new_sprout] = False
+#                     break
+
+#             if m == M and new_sprouts[new_sprout]:
+#                 found = True
+#                 break
         
-        if found: break
+#         if found: break
 
-    sprouts = new_sprouts
+#     sprouts = new_sprouts
 
 # sprouts = {(0, 15, 102): True} # M = 3
 
@@ -97,27 +118,30 @@ for m in range(2, M+1):
 
 # # sprouts = {frozenset([0, 15, 102]): True} # M = 3
 
-sprouts = [sprout for (sprout, feasible) in sprouts.items() if feasible]
-print(f"{len(sprouts)} feasible sprouts")
+# sprouts = [sprout for (sprout, feasible) in sprouts.items() if feasible]
+# print(f"{len(sprouts)} feasible sprouts")
 
-if len(sprouts) > 0:
-    sprout = sprouts[0]
-    print(f"first sprout = {sprout}")
+# sprout = sprouts[0]
+# print(f"first sprout = {sprout}")
 
-    # hand-check
-    A = vertices[sorted(sprout)]
-    print("A:")
-    print(A)
-    print("A**2:")
-    print((A[:,None,:] * A[None,:,:]).reshape(-1, N))
-    print("V:")
-    print(V)
+print(f"best sprout = {sprout}")
 
-    for (a,b) in it.combinations(A, r=2):
-        for v in V:
-            assert (a*b) @ v == 0
+# hand-check
+A = vertices[sorted(sprout)]
+print("A:")
+print(A)
+print("A**2:")
+A2 = np.stack([a * b for (a,b) in it.combinations_with_replacement(A, r=2)])
+print(A2)
+# print((A[:,None,:] * A[None,:,:]).reshape(-1, N))
+print("V:")
+print(V)
 
-    print("check passed.")
+for (a,b) in it.combinations(A, r=2):
+    for v in V:
+        assert (a*b) @ v == 0
+
+print("check passed.")
 
 # A2 = H[2**(K-1):]
 # A = np.where(A2 == 1, 0-1j, 0+1j)
