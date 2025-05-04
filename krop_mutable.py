@@ -4,7 +4,8 @@ import matplotlib.pyplot as pt
 from matplotlib import rcParams
 import hrr, krop
 
-do_check = False
+# configuration
+do_check = True
 K_N_min = 2
 K_N_max_direct = 12
 K_N_max = 15

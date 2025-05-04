@@ -18,13 +18,13 @@ for idx in it.combinations(range(len(vertices)), r=M):
     print('idx, V, prods')
     print(idx)
 
-    print(vertices[list(idx)])
+    # print(vertices[list(idx)])
 
     prods = np.stack([
         vertices[i] * vertices[j]
         for (i,j) in it.combinations(idx, r=2)])
 
-    print(prods)
+    # print(prods)
 
     if (prods.sum(axis=1) == 0).all():
         equis[idx] = prods
